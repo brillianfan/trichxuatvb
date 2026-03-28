@@ -1,0 +1,5 @@
+{
+  "name": "Trích Xuất Văn Bản Thông Minh",
+  "description": "Công cụ OCR mạnh mẽ giúp trích xuất văn bản từ hình ảnh với độ chính xác cao, hỗ trợ dán từ clipboard và xuất file DOCX.",
+  "requestFramePermissions": []
+}
