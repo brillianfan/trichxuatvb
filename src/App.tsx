@@ -11,13 +11,18 @@ import {
   AlertCircle,
   Plus,
   Trash2,
-  Copy
+  Copy,
+  Eye,
+  Code
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { Document, Packer, Paragraph, TextRun } from "docx";
 import { saveAs } from "file-saver";
 import { extractTextFromImage, generateFilenameFromText } from "./services/ocrService";
 import { cn } from "./lib/utils";
+import Markdown from "react-markdown";
+import rehypeRaw from "rehype-raw";
+import { convertMarkdownToDocxComponents } from "./lib/markdownDocxParser";
 
 interface ImageFile {
   id: string;
@@ -32,6 +37,7 @@ export default function App() {
   const [images, setImages] = useState<ImageFile[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [activeTabs, setActiveTabs] = useState<{ [id: string]: "preview" | "raw" }>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFiles = useCallback((files: FileList | File[]) => {
@@ -130,12 +136,10 @@ export default function App() {
       const sections = images
         .filter(img => img.extractedText)
         .map(img => {
-          const lines = img.extractedText!.split("\n");
+          const docxComponents = convertMarkdownToDocxComponents(img.extractedText!);
           return {
             properties: {},
-            children: lines.map(line => new Paragraph({
-              children: [new TextRun(line)],
-            })),
+            children: docxComponents
           };
         });
 
@@ -340,28 +344,96 @@ export default function App() {
                   </div>
                 ) : (
                   <div className="space-y-8">
-                    {images.map((img) => (
-                      img.extractedText && (
-                        <div key={img.id} className="space-y-3 group">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                              <ImageIcon size={14} />
-                              {img.file.name}
+                    {images.map((img) => {
+                      const activeTab = activeTabs[img.id] || "preview";
+                      return img.extractedText && (
+                        <div key={img.id} className="space-y-3 group border border-slate-100 rounded-2xl p-4 bg-white shadow-sm hover:shadow transition-shadow">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                            <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                              <ImageIcon size={14} className="text-blue-500" />
+                              <span className="truncate max-w-[180px] md:max-w-xs">{img.file.name}</span>
                             </div>
-                            <button 
-                              onClick={() => copyToClipboard(img.extractedText!)}
-                              className="p-1.5 hover:bg-slate-100 text-slate-500 rounded-md transition-colors opacity-0 group-hover:opacity-100"
-                              title="Sao chép"
-                            >
-                              <Copy size={16} />
-                            </button>
+                            
+                            <div className="flex items-center justify-between sm:justify-end gap-3 flex-wrap">
+                              {/* Tab Selector */}
+                              <div className="flex bg-slate-100 p-0.5 rounded-lg border border-slate-200">
+                                <button
+                                  type="button"
+                                  onClick={() => setActiveTabs(prev => ({ ...prev, [img.id]: "preview" }))}
+                                  className={cn(
+                                    "flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md transition-all",
+                                    activeTab === "preview" 
+                                      ? "bg-white text-blue-600 shadow-sm font-semibold" 
+                                      : "text-slate-500 hover:text-slate-700"
+                                  )}
+                                >
+                                  <Eye size={12} />
+                                  <span>Định dạng</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setActiveTabs(prev => ({ ...prev, [img.id]: "raw" }))}
+                                  className={cn(
+                                    "flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md transition-all",
+                                    activeTab === "raw" 
+                                      ? "bg-white text-blue-600 shadow-sm font-semibold" 
+                                      : "text-slate-500 hover:text-slate-700"
+                                  )}
+                                >
+                                  <Code size={12} />
+                                  <span>Gốc (Markdown)</span>
+                                </button>
+                              </div>
+
+                              <button 
+                                onClick={() => copyToClipboard(img.extractedText!)}
+                                className="p-1.5 hover:bg-slate-100 text-slate-500 rounded-md transition-colors flex items-center gap-1.5 text-xs font-medium border border-slate-200 bg-white"
+                                title="Sao chép toàn bộ"
+                              >
+                                <Copy size={13} />
+                                <span>Sao chép</span>
+                              </button>
+                            </div>
                           </div>
-                          <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 whitespace-pre-wrap text-slate-700 leading-relaxed font-mono text-sm">
-                            {img.extractedText}
-                          </div>
+
+                          {activeTab === "preview" ? (
+                            <div className="p-5 bg-white rounded-xl border border-slate-100 text-slate-700 leading-relaxed text-sm shadow-inner min-h-[150px] max-w-none">
+                              <Markdown
+                                rehypePlugins={[rehypeRaw]}
+                                components={{
+                                  h1: ({ children }) => <h1 className="text-xl md:text-2xl font-bold mt-4 mb-2 text-slate-900 border-b pb-2 border-slate-150">{children}</h1>,
+                                  h2: ({ children }) => <h2 className="text-lg md:text-xl font-bold mt-3.5 mb-2 text-slate-800">{children}</h2>,
+                                  h3: ({ children }) => <h3 className="text-base md:text-lg font-bold mt-3 mb-1.5 text-slate-700">{children}</h3>,
+                                  p: ({ children }) => <p className="mb-3 text-slate-600 leading-relaxed last:mb-0 whitespace-pre-line">{children}</p>,
+                                  strong: ({ children }) => <strong className="font-bold text-slate-900 bg-slate-50 px-1 rounded">{children}</strong>,
+                                  em: ({ children }) => <em className="italic text-slate-800">{children}</em>,
+                                  u: ({ children }) => <u className="underline text-slate-900 font-medium decoration-blue-500/50 decoration-2 underline-offset-2">{children}</u>,
+                                  ul: ({ children }) => <ul className="list-disc pl-5 mb-3.5 space-y-1 text-slate-600">{children}</ul>,
+                                  ol: ({ children }) => <ol className="list-decimal pl-5 mb-3.5 space-y-1 text-slate-600">{children}</ol>,
+                                  li: ({ children }) => <li className="text-slate-600">{children}</li>,
+                                  table: ({ children }) => (
+                                    <div className="overflow-x-auto my-3.5 rounded-xl border border-slate-200 shadow-sm">
+                                      <table className="min-w-full divide-y divide-slate-200 text-sm">{children}</table>
+                                    </div>
+                                  ),
+                                  thead: ({ children }) => <thead className="bg-slate-50 font-medium">{children}</thead>,
+                                  tbody: ({ children }) => <tbody className="divide-y divide-slate-150 bg-white">{children}</tbody>,
+                                  tr: ({ children }) => <tr className="hover:bg-slate-50/50 transition-colors">{children}</tr>,
+                                  th: ({ children }) => <th className="px-4 py-2.5 text-left font-semibold text-slate-700 border-r last:border-r-0 border-slate-200">{children}</th>,
+                                  td: ({ children }) => <td className="px-4 py-2.5 text-slate-600 border-r last:border-r-0 border-slate-100">{children}</td>,
+                                }}
+                              >
+                                {img.extractedText}
+                              </Markdown>
+                            </div>
+                          ) : (
+                            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 font-mono text-xs whitespace-pre-wrap text-slate-700 leading-relaxed max-h-[400px] overflow-y-auto">
+                              {img.extractedText}
+                            </div>
+                          )}
                         </div>
-                      )
-                    ))}
+                      );
+                    })}
                     {images.some(img => img.status === "processing") && (
                       <div className="flex items-center justify-center py-12">
                         <div className="flex flex-col items-center gap-3">
