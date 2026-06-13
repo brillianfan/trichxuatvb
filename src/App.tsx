@@ -272,18 +272,25 @@ export default function App() {
                         
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate text-slate-700">{img.file.name}</p>
-                          <div className="flex items-center gap-2 mt-1">
-                            {img.status === "pending" && <span className="text-xs text-slate-400">Chờ xử lý</span>}
-                            {img.status === "processing" && <span className="text-xs text-blue-500 font-medium">Đang trích xuất...</span>}
-                            {img.status === "completed" && (
-                              <span className="text-xs text-green-600 font-medium flex items-center gap-1">
-                                <CheckCircle2 size={12} /> Hoàn tất
-                              </span>
-                            )}
-                            {img.status === "error" && (
-                              <span className="text-xs text-red-500 font-medium flex items-center gap-1">
-                                <AlertCircle size={12} /> Lỗi
-                              </span>
+                          <div className="flex flex-col gap-0.5 mt-1">
+                            <div className="flex items-center gap-2">
+                              {img.status === "pending" && <span className="text-xs text-slate-400">Chờ xử lý</span>}
+                              {img.status === "processing" && <span className="text-xs text-blue-500 font-medium">Đang trích xuất...</span>}
+                              {img.status === "completed" && (
+                                <span className="text-xs text-green-600 font-medium flex items-center gap-1">
+                                  <CheckCircle2 size={12} /> Hoàn tất
+                                </span>
+                              )}
+                              {img.status === "error" && (
+                                <span className="text-xs text-red-500 font-medium flex items-center gap-1">
+                                  <AlertCircle size={12} /> Lỗi
+                                </span>
+                              )}
+                            </div>
+                            {img.status === "error" && img.error && (
+                              <p className="text-[11px] text-red-500 leading-tight mt-0.5 max-w-full break-words">
+                                {img.error}
+                              </p>
                             )}
                           </div>
                         </div>
